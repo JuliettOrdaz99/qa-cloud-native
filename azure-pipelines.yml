@@ -53,10 +53,21 @@ stages:
 
           - script: npm ci
             displayName: "Install project dependencies"
+- task: PowerShell@2
+  displayName: "Run smoke tests and generate JUnit report"
+  inputs:
+    targetType: inline
+    script: |
+      New-Item -ItemType Directory -Force reports | Out-Null
 
-          - script: mkdir -p reports && npm run test:junit
-            displayName: "Run smoke tests and generate JUnit report"
+      npm run test:junit
 
+      if (!(Test-Path "reports/junit.xml")) {
+        throw "JUnit report was not generated."
+      }
+
+      Write-Host "JUnit report generated successfully."
+      Get-Content reports/junit.xml -TotalCount 10
           - task: PublishTestResults@2
             condition: succeededOrFailed()
             inputs:
