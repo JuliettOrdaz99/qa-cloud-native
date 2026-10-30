@@ -1,0 +1,67 @@
+
+trigger:
+  - main
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+
+  # STAGE 1: BUILD
+  - stage: Build
+    displayName: "Build - Prepare application"
+    jobs:
+      - job: BuildJob
+        displayName: "Install dependencies and generate test data"
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: "24.x"
+            displayName: "Install Node.js"
+
+          - script: npm ci
+            displayName: "Install project dependencies"
+
+          - script: npm run data:generate
+            displayName: "Generate Faker test data"
+
+          - task: PublishPipelineArtifact@1
+            inputs:
+              targetPath: "$(Build.SourcesDirectory)/datos/db.json"
+              artifact: "test-data"
+            displayName: "Publish generated test data"
+
+  # STAGE 2: SMOKE TESTS
+  - stage: SmokeTests
+    displayName: "Smoke Tests - Validate application"
+    dependsOn: Build
+    condition: succeeded()
+    jobs:
+      - job: SmokeTestsJob
+        displayName: "Execute automated smoke tests"
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: "24.x"
+            displayName: "Install Node.js"
+
+          - task: DownloadPipelineArtifact@2
+            inputs:
+              artifact: "test-data"
+              path: "$(Build.SourcesDirectory)/datos"
+            displayName: "Download generated test data"
+
+          - script: npm ci
+            displayName: "Install project dependencies"
+
+          - script: mkdir -p reports && npm run test:junit
+            displayName: "Run smoke tests and generate JUnit report"
+
+          - task: PublishTestResults@2
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: "JUnit"
+              testResultsFiles: "reports/junit.xml"
+              failTaskOnFailedTests: true
+              testRunTitle: "QA Cloud Native - Smoke Tests"
+            displayName: "Publish smoke test results"
