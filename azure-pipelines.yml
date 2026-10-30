@@ -14,9 +14,9 @@ stages:
       - job: BuildJob
         displayName: "Install dependencies and generate test data"
         steps:
-          - task: NodeTool@0
+          - task: UseNode@1
             inputs:
-              versionSpec: "24.x"
+              version: "24.x"
             displayName: "Install Node.js"
 
           - script: npm ci
@@ -40,9 +40,9 @@ stages:
       - job: SmokeTestsJob
         displayName: "Execute automated smoke tests"
         steps:
-          - task: NodeTool@0
+          - task: UseNode@1
             inputs:
-              versionSpec: "24.x"
+              version: "24.x"
             displayName: "Install Node.js"
 
           - task: DownloadPipelineArtifact@2
@@ -53,21 +53,23 @@ stages:
 
           - script: npm ci
             displayName: "Install project dependencies"
-- task: PowerShell@2
-  displayName: "Run smoke tests and generate JUnit report"
-  inputs:
-    targetType: inline
-    script: |
-      New-Item -ItemType Directory -Force reports | Out-Null
 
-      npm run test:junit
+          - task: PowerShell@2
+            displayName: "Run smoke tests and generate JUnit report"
+            inputs:
+              targetType: inline
+              script: |
+                New-Item -ItemType Directory -Force reports | Out-Null
 
-      if (!(Test-Path "reports/junit.xml")) {
-        throw "JUnit report was not generated."
-      }
+                npm run test:junit
 
-      Write-Host "JUnit report generated successfully."
-      Get-Content reports/junit.xml -TotalCount 10
+                if (!(Test-Path "reports/junit.xml")) {
+                  throw "JUnit report was not generated."
+                }
+
+                Write-Host "JUnit report generated successfully."
+                Get-Content reports/junit.xml -TotalCount 10
+
           - task: PublishTestResults@2
             condition: succeededOrFailed()
             inputs:
