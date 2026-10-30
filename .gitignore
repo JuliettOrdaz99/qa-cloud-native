@@ -17,3 +17,5 @@ __pycache__/
 .pytest_cache/
 .venv/
 venv/
+# Reportes de pruebas generados automáticamente
+reports/*.xml
