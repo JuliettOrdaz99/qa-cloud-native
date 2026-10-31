@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node app-tienda/server.js",
     "data:generate": "node datos/generar-datos.js",
-    "test": "node --test",
+    "test": "node --test e2e/smoke.test.js",
     "test:junit": "node --test --test-reporter=junit --test-reporter-destination=reports/junit.xml",
     "test:load": "node e2e/load.test.js"
   },
