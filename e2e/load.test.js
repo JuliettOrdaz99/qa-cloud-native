@@ -3,7 +3,7 @@ import { performance } from "node:perf_hooks";
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 const TOTAL_REQUESTS = 100;
-const SLA_P95_MS = 800;
+const SLA_P95_MS = 1;
 const SLA_ERROR_RATE = 1;
 
 const responseTimes = [];
