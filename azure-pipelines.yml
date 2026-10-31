@@ -84,6 +84,10 @@ stages:
 
                 npm run test:junit
 
+                if ($LASTEXITCODE -ne 0) {
+                  throw "Smoke tests failed."
+                }
+
                 $reportPath = "reports/junit.xml"
 
                 if (!(Test-Path $reportPath)) {
@@ -156,3 +160,90 @@ stages:
               failTaskOnMissingResultsFile: true
               failTaskOnFailedTests: true
               testRunTitle: "QA Cloud Native - Smoke Tests"
+
+
+  # ==========================================
+  # STAGE 3: LOAD TEST
+  # ==========================================
+  - stage: LoadTest
+    displayName: "Load Test - Validate performance SLA"
+
+    dependsOn: SmokeTests
+    condition: succeeded()
+
+    jobs:
+      - job: LoadTestJob
+        displayName: "Execute load test"
+
+        steps:
+
+          # Install Node.js
+          - task: UseNode@1
+            inputs:
+              version: "24.x"
+            displayName: "Install Node.js"
+
+          # Install dependencies
+          - script: npm ci
+            displayName: "Install project dependencies"
+
+          # Generate test data for the API
+          - script: npm run data:generate
+            displayName: "Generate Faker test data"
+
+          # Start API, wait for health, run load test, and stop API
+          - task: PowerShell@2
+            displayName: "Start API and execute load test"
+            inputs:
+              targetType: inline
+              workingDirectory: "$(Build.SourcesDirectory)"
+              script: |
+                $server = $null
+
+                try {
+                  $server = Start-Process `
+                    -FilePath "node" `
+                    -ArgumentList "app-tienda/server.js" `
+                    -WorkingDirectory "$(Build.SourcesDirectory)" `
+                    -PassThru `
+                    -WindowStyle Hidden
+
+                  Write-Host "API process started. PID: $($server.Id)"
+
+                  $ready = $false
+
+                  for ($i = 0; $i -lt 30; $i++) {
+                    try {
+                      $health = Invoke-RestMethod `
+                        -Uri "http://localhost:3000/health" `
+                        -TimeoutSec 2
+
+                      if ($health.status -eq "ok") {
+                        $ready = $true
+                        break
+                      }
+                    }
+                    catch {
+                      Start-Sleep -Seconds 1
+                    }
+                  }
+
+                  if (-not $ready) {
+                    throw "API health check did not become ready."
+                  }
+
+                  Write-Host "API is healthy. Starting load test."
+
+                  $env:BASE_URL = "http://localhost:3000"
+                  npm run test:load
+
+                  if ($LASTEXITCODE -ne 0) {
+                    throw "Load test failed. Check the performance SLA."
+                  }
+                }
+                finally {
+                  if ($server -and -not $server.HasExited) {
+                    Stop-Process -Id $server.Id -Force
+                    Write-Host "API process stopped."
+                  }
+                }
