@@ -98,8 +98,8 @@ stages:
             condition: succeededOrFailed()
             inputs:
               testResultsFormat: "JUnit"
-              searchFolder: "$(Build.SourcesDirectory)"
-              testResultsFiles: "**/junit.xml"
+              searchFolder: "$(Build.SourcesDirectory)/reports"
+              testResultsFiles: "junit.xml"
               mergeTestResults: true
               failTaskOnMissingResultsFile: true
               failTaskOnFailedTests: true
