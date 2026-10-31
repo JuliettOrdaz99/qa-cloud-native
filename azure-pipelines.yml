@@ -73,7 +73,7 @@ stages:
           - script: npm ci
             displayName: "Install project dependencies"
 
-          # Execute tests and generate JUnit
+          # Execute tests and generate normalized JUnit report
           - task: PowerShell@2
             displayName: "Run smoke tests and generate JUnit report"
             inputs:
@@ -84,13 +84,47 @@ stages:
 
                 npm run test:junit
 
-                if (!(Test-Path "reports/junit.xml")) {
+                $reportPath = "reports/junit.xml"
+
+                if (!(Test-Path $reportPath)) {
                   throw "JUnit report was not generated."
                 }
 
-                Write-Host "JUnit report generated successfully."
+                [xml]$report = Get-Content $reportPath -Raw
 
-                Get-Content reports/junit.xml -TotalCount 10
+                $testCases = @($report.testsuites.testcase)
+
+                if ($testCases.Count -eq 0) {
+                  throw "No test cases were found in the JUnit report."
+                }
+
+                $testSuite = $report.CreateElement("testsuite")
+                $testSuite.SetAttribute("name", "QA Cloud Native Smoke Tests")
+                $testSuite.SetAttribute("tests", "$($testCases.Count)")
+
+                $failures = @($testCases | Where-Object { $_.failure }).Count
+                $errors = @($testCases | Where-Object { $_.error }).Count
+                $skipped = @($testCases | Where-Object { $_.skipped }).Count
+
+                $testSuite.SetAttribute("failures", "$failures")
+                $testSuite.SetAttribute("errors", "$errors")
+                $testSuite.SetAttribute("skipped", "$skipped")
+
+                foreach ($testCase in $testCases) {
+                  $null = $report.testsuites.RemoveChild($testCase)
+                  $null = $testSuite.AppendChild($testCase)
+                }
+
+                $null = $report.testsuites.AppendChild($testSuite)
+                $report.Save($reportPath)
+
+                Write-Host "JUnit report normalized successfully."
+                Write-Host "Test cases: $($testCases.Count)"
+                Write-Host "Failures: $failures"
+                Write-Host "Errors: $errors"
+                Write-Host "Skipped: $skipped"
+
+                Get-Content $reportPath -TotalCount 15
 
           # Diagnose JUnit report location
           - task: PowerShell@2
