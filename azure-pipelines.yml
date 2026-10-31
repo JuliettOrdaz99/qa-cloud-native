@@ -92,6 +92,24 @@ stages:
 
                 Get-Content reports/junit.xml -TotalCount 10
 
+          # Diagnose JUnit report location
+          - task: PowerShell@2
+            displayName: "Diagnose JUnit report location"
+            inputs:
+              targetType: inline
+              workingDirectory: "$(Build.SourcesDirectory)"
+              script: |
+                Write-Host "Sources directory:"
+                Write-Host "$(Build.SourcesDirectory)"
+
+                Write-Host "Current directory:"
+                Get-Location
+
+                Write-Host "Searching for JUnit XML files:"
+
+                Get-ChildItem "$(Build.SourcesDirectory)" -Filter "*.xml" -Recurse |
+                  Select-Object FullName, Length
+
           # Publish JUnit results
           - task: PublishTestResults@2
             displayName: "Publish smoke test results"
