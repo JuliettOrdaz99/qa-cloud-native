@@ -8,7 +8,8 @@
     "start": "node app-tienda/server.js",
     "data:generate": "node datos/generar-datos.js",
     "test": "node --test",
-    "test:junit": "node --test --test-reporter=junit --test-reporter-destination=reports/junit.xml"
+    "test:junit": "node --test --test-reporter=junit --test-reporter-destination=reports/junit.xml",
+    "test:load": "node e2e/load.test.js"
   },
   "keywords": [],
   "author": "",
