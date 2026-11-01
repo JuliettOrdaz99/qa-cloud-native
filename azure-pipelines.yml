@@ -84,6 +84,8 @@ stages:
 
                 npm run test:junit
 
+                Write-Host "Exit code from JUnit: $LASTEXITCODE"
+
                 if ($LASTEXITCODE -ne 0) {
                   throw "Smoke tests failed."
                 }
@@ -133,6 +135,7 @@ stages:
           # Diagnose JUnit report location
           - task: PowerShell@2
             displayName: "Diagnose JUnit report location"
+            condition: succeededOrFailed()
             inputs:
               targetType: inline
               workingDirectory: "$(Build.SourcesDirectory)"
