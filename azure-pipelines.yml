@@ -166,7 +166,120 @@ stages:
 
 
   # ==========================================
-  # STAGE 3: LOAD TEST
+  # STAGE 3: BDD TESTS
+  # ==========================================
+  - stage: BDDTests
+    displayName: "BDD Tests - Validate business scenarios"
+
+    dependsOn: SmokeTests
+    condition: succeeded()
+
+    jobs:
+      - job: BDDTestsJob
+        displayName: "Execute BDD tests with pytest-bdd"
+
+        steps:
+
+          # Verify existing Python installation
+          - task: PowerShell@2
+            displayName: "Use existing Python"
+            inputs:
+              targetType: inline
+              script: |
+                & "C:\Python315\python.exe" --version
+
+                if ($LASTEXITCODE -ne 0) {
+                  throw "Python was not found at C:\Python315\python.exe"
+                }
+
+          # Install Python dependencies
+          - task: PowerShell@2
+            displayName: "Install BDD dependencies"
+            inputs:
+              targetType: inline
+              workingDirectory: "$(Build.SourcesDirectory)"
+              script: |
+                & "C:\Python315\python.exe" -m pip install -r requirements.txt
+
+                if ($LASTEXITCODE -ne 0) {
+                  throw "Failed to install BDD dependencies."
+                }
+
+          # Start API and execute BDD tests
+          - task: PowerShell@2
+            displayName: "Run BDD scenarios"
+            inputs:
+              targetType: inline
+              workingDirectory: "$(Build.SourcesDirectory)"
+              script: |
+                $server = $null
+
+                try {
+                  npm ci
+
+                  if ($LASTEXITCODE -ne 0) {
+                    throw "Failed to install Node.js dependencies."
+                  }
+
+                  npm run data:generate
+
+                  if ($LASTEXITCODE -ne 0) {
+                    throw "Failed to generate test data."
+                  }
+
+                  $server = Start-Process `
+                    -FilePath "node" `
+                    -ArgumentList "app-tienda/server.js" `
+                    -WorkingDirectory "$(Build.SourcesDirectory)" `
+                    -PassThru `
+                    -WindowStyle Hidden
+
+                  Write-Host "API process started. PID: $($server.Id)"
+
+                  $ready = $false
+
+                  for ($i = 0; $i -lt 30; $i++) {
+                    try {
+                      $health = Invoke-RestMethod `
+                        -Uri "http://localhost:3000/health" `
+                        -TimeoutSec 2
+
+                      if ($health.status -eq "ok") {
+                        $ready = $true
+                        break
+                      }
+                    }
+                    catch {
+                      Start-Sleep -Seconds 1
+                    }
+                  }
+
+                  if (-not $ready) {
+                    throw "API health check did not become ready."
+                  }
+
+                  Write-Host "API is healthy. Starting BDD tests."
+
+                  $env:BASE_URL = "http://localhost:3000"
+
+                  & "C:\Python315\python.exe" -m pytest steps/test_productos.py -v
+
+                  if ($LASTEXITCODE -ne 0) {
+                    throw "BDD tests failed."
+                  }
+
+                  Write-Host "BDD tests completed successfully."
+                }
+                finally {
+                  if ($server -and -not $server.HasExited) {
+                    Stop-Process -Id $server.Id -Force
+                    Write-Host "API process stopped."
+                  }
+                }
+
+
+  # ==========================================
+  # STAGE 4: LOAD TEST
   # ==========================================
   - stage: LoadTest
     displayName: "Load Test - Validate performance SLA"
@@ -238,100 +351,12 @@ stages:
                   Write-Host "API is healthy. Starting load test."
 
                   $env:BASE_URL = "http://localhost:3000"
+
                   npm run test:load
 
                   if ($LASTEXITCODE -ne 0) {
                     throw "Load test failed. Check the performance SLA."
                   }
-                }
-                finally {
-                  if ($server -and -not $server.HasExited) {
-                    Stop-Process -Id $server.Id -Force
-                    Write-Host "API process stopped."
-                  }
-                }
-  # ==========================================
-  # STAGE 4: BDD TESTS
-  # ==========================================
-  - stage: BDDTests
-    displayName: "BDD Tests - Validate business scenarios"
-
-    dependsOn: SmokeTests
-    condition: succeeded()
-
-    jobs:
-      - job: BDDTestsJob
-        displayName: "Execute BDD tests with pytest-bdd"
-
-        steps:
-
-          # Install Python
-          - task: UsePythonVersion@0
-            inputs:
-              versionSpec: "3.x"
-              architecture: "x64"
-            displayName: "Install Python"
-
-          # Install Python dependencies
-          - script: python -m pip install -r requirements.txt
-            displayName: "Install BDD dependencies"
-
-          # Start API and execute BDD tests
-          - task: PowerShell@2
-            displayName: "Run BDD scenarios"
-            inputs:
-              targetType: inline
-              workingDirectory: "$(Build.SourcesDirectory)"
-              script: |
-                $server = $null
-
-                try {
-                  npm ci
-
-                  npm run data:generate
-
-                  $server = Start-Process `
-                    -FilePath "node" `
-                    -ArgumentList "app-tienda/server.js" `
-                    -WorkingDirectory "$(Build.SourcesDirectory)" `
-                    -PassThru `
-                    -WindowStyle Hidden
-
-                  Write-Host "API process started. PID: $($server.Id)"
-
-                  $ready = $false
-
-                  for ($i = 0; $i -lt 30; $i++) {
-                    try {
-                      $health = Invoke-RestMethod `
-                        -Uri "http://localhost:3000/health" `
-                        -TimeoutSec 2
-
-                      if ($health.status -eq "ok") {
-                        $ready = $true
-                        break
-                      }
-                    }
-                    catch {
-                      Start-Sleep -Seconds 1
-                    }
-                  }
-
-                  if (-not $ready) {
-                    throw "API health check did not become ready."
-                  }
-
-                  Write-Host "API is healthy. Starting BDD tests."
-
-                  $env:BASE_URL = "http://localhost:3000"
-
-                  python -m pytest steps/test_productos.py -v
-
-                  if ($LASTEXITCODE -ne 0) {
-                    throw "BDD tests failed."
-                  }
-
-                  Write-Host "BDD tests completed successfully."
                 }
                 finally {
                   if ($server -and -not $server.HasExited) {
