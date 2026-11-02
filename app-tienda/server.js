@@ -25,6 +25,23 @@ export function createServer() {
   return http.createServer((req, res) => {
     res.setHeader("Content-Type", "application/json");
 
+    if (req.method === "GET" && req.url === "/") {
+  const htmlPath = path.join(currentDir, "public", "index.html");
+
+  try {
+    const html = fs.readFileSync(htmlPath, "utf8");
+    res.writeHead(200, {
+      "Content-Type": "text/html; charset=utf-8",
+    });
+    return res.end(html);
+  } catch {
+    res.writeHead(500, {
+      "Content-Type": "application/json",
+    });
+    return res.end(JSON.stringify({ error: "Web page not found" }));
+  }
+}
+
     // Health check
     if (req.method === "GET" && req.url === "/health") {
       res.writeHead(200);

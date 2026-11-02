@@ -364,3 +364,85 @@ stages:
                     Write-Host "API process stopped."
                   }
                 }
+  # ==========================================
+  # STAGE 5: BROWSER TESTS
+  # ==========================================
+  - stage: BrowserTests
+    displayName: "Browser Tests - Playwright"
+
+    dependsOn: LoadTest
+    condition: succeeded()
+
+    jobs:
+      - job: PlaywrightJob
+        displayName: "Execute browser tests"
+
+        steps:
+          - task: UseNode@1
+            inputs:
+              version: "24.x"
+            displayName: "Install Node.js"
+
+          - script: npm ci
+            displayName: "Install project dependencies"
+
+          - script: npx playwright install chromium
+            displayName: "Install Playwright Chromium"
+
+          - script: npm run data:generate
+            displayName: "Generate test data"
+
+          - task: PowerShell@2
+            displayName: "Start application and execute Playwright"
+            inputs:
+              targetType: inline
+              workingDirectory: "$(Build.SourcesDirectory)"
+              script: |
+                $server = $null
+
+                try {
+                  $server = Start-Process `
+                    -FilePath "node" `
+                    -ArgumentList "app-tienda/server.js" `
+                    -WorkingDirectory "$(Build.SourcesDirectory)" `
+                    -PassThru `
+                    -WindowStyle Hidden
+
+                  Write-Host "Application process started. PID: $($server.Id)"
+
+                  $ready = $false
+
+                  for ($i = 0; $i -lt 30; $i++) {
+                    try {
+                      $health = Invoke-RestMethod `
+                        -Uri "http://localhost:3000/health" `
+                        -TimeoutSec 2
+
+                      if ($health.status -eq "ok") {
+                        $ready = $true
+                        break
+                      }
+                    }
+                    catch {
+                      Start-Sleep -Seconds 1
+                    }
+                  }
+
+                  if (-not $ready) {
+                    throw "Application did not become ready."
+                  }
+
+                  $env:BASE_URL = "http://localhost:3000"
+
+                  npm run test:browser
+
+                  if ($LASTEXITCODE -ne 0) {
+                    throw "Playwright browser tests failed."
+                  }
+                }
+                finally {
+                  if ($server -and -not $server.HasExited) {
+                    Stop-Process -Id $server.Id -Force
+                    Write-Host "Application process stopped."
+                  }
+                }

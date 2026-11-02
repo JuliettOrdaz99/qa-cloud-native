@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QA Cloud Native Store</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1000px;
+      margin: 40px auto;
+      padding: 0 20px;
+      background: #f5f7fa;
+      color: #222;
+    }
+
+    h1 {
+      color: #243b53;
+    }
+
+    #status {
+      margin: 20px 0;
+      padding: 12px;
+      background: #e3fcef;
+      border-radius: 6px;
+    }
+
+    #products {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .product {
+      background: white;
+      border: 1px solid #d9e2ec;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .product h2 {
+      font-size: 18px;
+      margin-top: 0;
+    }
+
+    .price {
+      font-weight: bold;
+      color: #147d64;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>QA Cloud Native Store</h1>
+
+  <p>Catálogo de productos</p>
+
+  <div id="status" role="status">Cargando catálogo...</div>
+
+  <section id="products" aria-label="Catálogo de productos"></section>
+
+  <script>
+    async function loadProducts() {
+      const status = document.querySelector("#status");
+      const container = document.querySelector("#products");
+
+      try {
+        const response = await fetch("/api/productos");
+
+        if (!response.ok) {
+          throw new Error("No se pudo consultar el catálogo");
+        }
+
+        const data = await response.json();
+
+        container.innerHTML = "";
+
+        data.products.forEach(product => {
+          const card = document.createElement("article");
+          card.className = "product";
+
+          card.innerHTML = `
+            <h2>${product.name}</h2>
+            <p class="price">$${product.price}</p>
+            <p>Categoría: ${product.category}</p>
+            <p>Existencias: ${product.stock}</p>
+          `;
+
+          container.appendChild(card);
+        });
+
+        status.textContent = `Catálogo cargado: ${data.total} productos`;
+      } catch (error) {
+        status.textContent = "Error al cargar el catálogo";
+        status.style.background = "#ffe3e3";
+      }
+    }
+
+    loadProducts();
+  </script>
+</body>
+</html>
