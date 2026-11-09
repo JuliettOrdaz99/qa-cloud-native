@@ -28,8 +28,7 @@ suites:
   - name: "QA Cloud Native - Chromium"
     platformName: "Windows 11"
     testMatch:
-      - "e2e/browser_catalog.spec.js"
+      - "**/browser_catalog.spec.js"
     params:
       browserName: "chromium"
       headless: true
-
