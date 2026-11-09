@@ -1,0 +1,35 @@
+
+apiVersion: v1alpha
+kind: playwright
+
+nodeVersion: "24"
+
+sauce:
+  region: us-west-1
+  concurrency: 1
+  tunnel:
+    name: $SAUCE_TUNNEL_NAME
+  metadata:
+    build: "QA Cloud Native - Phase 4"
+    tags:
+      - playwright
+      - azure-devops
+
+playwright:
+  version: "1.62.1"
+  configFile: playwright.config.js
+
+rootDir: ./
+
+npm:
+  usePackageLock: true
+
+suites:
+  - name: "QA Cloud Native - Chromium"
+    platformName: "Windows 11"
+    testMatch:
+      - "e2e/browser_catalog.spec.js"
+    params:
+      browserName: "chromium"
+      headless: true
+

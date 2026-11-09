@@ -446,3 +446,43 @@ stages:
                     Write-Host "Application process stopped."
                   }
                 }
+
+  # ==========================================
+  # STAGE 6: SAUCE LABS CLOUD TESTS
+  # ==========================================
+  - stage: SauceCloudTests
+    displayName: "Sauce Labs - Cloud Browser Tests"
+
+    dependsOn: BrowserTests
+    condition: and(succeeded(), eq(variables['SAUCE_ENABLED'], 'true'))
+
+    jobs:
+      - job: SauceCloudJob
+        displayName: "Execute Playwright tests in Sauce Labs"
+
+        steps:
+          - task: UseNode@1
+            inputs:
+              version: "24.x"
+            displayName: "Install Node.js"
+
+          - script: npm ci
+            displayName: "Install project dependencies"
+
+          - script: npm run data:generate
+            displayName: "Generate test data"
+
+          - task: PowerShell@2
+            displayName: "Run Sauce Labs cloud tests"
+            inputs:
+              targetType: inline
+              workingDirectory: "$(Build.SourcesDirectory)"
+              script: |
+                npx saucectl run
+
+                if ($LASTEXITCODE -ne 0) {
+                  throw "Sauce Labs cloud tests failed."
+                }
+            env:
+              SAUCE_USERNAME: $(SAUCE_USERNAME)
+              SAUCE_ACCESS_KEY: $(SAUCE_ACCESS_KEY)
