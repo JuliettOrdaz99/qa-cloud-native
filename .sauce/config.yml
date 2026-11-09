@@ -2,7 +2,7 @@
 apiVersion: v1alpha
 kind: playwright
 
-nodeVersion: "24"
+nodeVersion: "v24"
 
 sauce:
   region: us-west-1
